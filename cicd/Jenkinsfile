@@ -12,13 +12,13 @@ pipeline {
   parameters {
     choice(name: 'ENV', choices: ['staging', 'prod'], description: 'Entorno objetivo (staging/prod). Producción requiere aprobación.')
     choice(name: 'TARGET', choices: ['both', 'eks', 'aks'], description: 'Destino de despliegue multinube.')
-    string(name: 'APP_NAME', defaultValue: 'tfm-app', description: 'Nombre lógico de la aplicación.')
+    string(name: 'APP_NAME', defaultValue: 'tfm-app', description: 'Nombre lógico de la aplicación (Helm release).')
     string(name: 'IMAGE_TAG', defaultValue: '', description: 'Opcional. Si vacío, se usa TAG=shortSHA-buildNumber.')
     booleanParam(name: 'RUN_DAST', defaultValue: true, description: 'Ejecutar pruebas dinámicas (baseline).')
   }
 
   environment {
-    // TODO: Registry “fuente única de verdad” (recomendado)
+    // TODO: Registry “fuente única de verdad”
     // Ejemplos:
     // - GHCR: ghcr.io/org/repo
     // - ACR: myregistry.azurecr.io/tfm
@@ -29,10 +29,10 @@ pipeline {
     NS_STAGING = "staging"
     NS_PROD    = "prod"
 
-    // Helm chart path dentro del repo
-    HELM_CHART_DIR = "deploy/helm/${APP_NAME}"
+    // Chart real en tu repo (según tu árbol actual)
+    HELM_CHART_DIR = "deploy/helm/apps"
 
-    // Values por proveedor (mínimas diferencias)
+    // Values por proveedor
     VALUES_EKS = "deploy/helm/values-eks.yaml"
     VALUES_AKS = "deploy/helm/values-aks.yaml"
 
@@ -87,9 +87,6 @@ pipeline {
       }
       post {
         always {
-          // TODO: publicar reportes si existen
-          // junit 'reports/junit.xml'
-          // publishHTML(...) etc.
           echo "Publicar artefactos de test/cobertura (si aplica)."
         }
       }
@@ -165,11 +162,16 @@ pipeline {
     stage('Build: Container Image') {
       agent { label 'linux-docker' }
       steps {
+        // NOTA TFM:
+        // La construcción de la imagen Docker se implementará en una fase posterior.
+        // En este hito se define la estructura completa del pipeline CI/CD y los gates
+        // de seguridad, dejando el Dockerfile fuera de alcance temporal.
         withCredentials([
           usernamePassword(credentialsId: 'TODO_REGISTRY_CREDS', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')
         ]) {
           sh '''
             set -e
+            echo "TODO: Build real cuando exista Dockerfile / contexto de build."
             echo "${REG_PASS}" | docker login -u "${REG_USER}" --password-stdin $(echo "${REGISTRY_REPO}" | awk -F/ '{print $1}')
             docker build -t "${IMAGE_REF_TAG}" .
             docker push "${IMAGE_REF_TAG}"
@@ -255,13 +257,38 @@ pipeline {
       }
     }
 
+    stage('Policy: Apply Kyverno Policies (Staging)') {
+      when { expression { return params.ENV == 'staging' } }
+      agent { label 'linux-docker' }
+      steps {
+        script {
+          if (params.TARGET == 'eks' || params.TARGET == 'both') {
+            withCredentials([file(credentialsId: 'TODO_KUBECONFIG_EKS', variable: 'KUBECONFIG')]) {
+              sh '''
+                set -e
+                echo "Aplicando políticas Kyverno en EKS (staging)..."
+                kubectl apply -f deploy/policies/kyverno/
+              '''
+            }
+          }
+          if (params.TARGET == 'aks' || params.TARGET == 'both') {
+            withCredentials([file(credentialsId: 'TODO_KUBECONFIG_AKS', variable: 'KUBECONFIG')]) {
+              sh '''
+                set -e
+                echo "Aplicando políticas Kyverno en AKS (staging)..."
+                kubectl apply -f deploy/policies/kyverno/
+              '''
+            }
+          }
+        }
+      }
+    }
+
     stage('Deploy: Staging (EKS)') {
       when { expression { return params.ENV == 'staging' && (params.TARGET == 'both' || params.TARGET == 'eks') } }
       agent { label 'linux-docker' }
       steps {
-        withCredentials([
-          file(credentialsId: 'TODO_KUBECONFIG_EKS', variable: 'KUBECONFIG')
-        ]) {
+        withCredentials([file(credentialsId: 'TODO_KUBECONFIG_EKS', variable: 'KUBECONFIG')]) {
           sh '''
             set -e
             echo "Desplegando en EKS (staging) por DIGEST..."
@@ -270,7 +297,12 @@ pipeline {
               -f "${VALUES_EKS}" \
               --set image.digest="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $2}')" \
               --set image.repository="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $1}')"
-            kubectl -n "${NS_STAGING}" rollout status deploy/"${APP_NAME}" --timeout=180s
+
+            echo "Verificando estado del release..."
+            helm -n "${NS_STAGING}" status "${APP_NAME}"
+
+            echo "Esperando rollout por label selector (robusto para Helm)..."
+            kubectl -n "${NS_STAGING}" rollout status deploy -l "app.kubernetes.io/instance=${APP_NAME}" --timeout=180s
           '''
         }
       }
@@ -280,9 +312,7 @@ pipeline {
       when { expression { return params.ENV == 'staging' && (params.TARGET == 'both' || params.TARGET == 'aks') } }
       agent { label 'linux-docker' }
       steps {
-        withCredentials([
-          file(credentialsId: 'TODO_KUBECONFIG_AKS', variable: 'KUBECONFIG')
-        ]) {
+        withCredentials([file(credentialsId: 'TODO_KUBECONFIG_AKS', variable: 'KUBECONFIG')]) {
           sh '''
             set -e
             echo "Desplegando en AKS (staging) por DIGEST..."
@@ -291,7 +321,12 @@ pipeline {
               -f "${VALUES_AKS}" \
               --set image.digest="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $2}')" \
               --set image.repository="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $1}')"
-            kubectl -n "${NS_STAGING}" rollout status deploy/"${APP_NAME}" --timeout=180s
+
+            echo "Verificando estado del release..."
+            helm -n "${NS_STAGING}" status "${APP_NAME}"
+
+            echo "Esperando rollout por label selector (robusto para Helm)..."
+            kubectl -n "${NS_STAGING}" rollout status deploy -l "app.kubernetes.io/instance=${APP_NAME}" --timeout=180s
           '''
         }
       }
@@ -346,9 +381,7 @@ pipeline {
       when { expression { return params.ENV == 'prod' && (params.TARGET == 'both' || params.TARGET == 'eks') } }
       agent { label 'linux-docker' }
       steps {
-        withCredentials([
-          file(credentialsId: 'TODO_KUBECONFIG_EKS', variable: 'KUBECONFIG')
-        ]) {
+        withCredentials([file(credentialsId: 'TODO_KUBECONFIG_EKS', variable: 'KUBECONFIG')]) {
           sh '''
             set -e
             echo "Desplegando en EKS (prod) por DIGEST..."
@@ -357,7 +390,12 @@ pipeline {
               -f "${VALUES_EKS}" \
               --set image.digest="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $2}')" \
               --set image.repository="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $1}')"
-            kubectl -n "${NS_PROD}" rollout status deploy/"${APP_NAME}" --timeout=240s
+
+            echo "Verificando estado del release..."
+            helm -n "${NS_PROD}" status "${APP_NAME}"
+
+            echo "Esperando rollout por label selector (robusto para Helm)..."
+            kubectl -n "${NS_PROD}" rollout status deploy -l "app.kubernetes.io/instance=${APP_NAME}" --timeout=240s
           '''
         }
       }
@@ -367,9 +405,7 @@ pipeline {
       when { expression { return params.ENV == 'prod' && (params.TARGET == 'both' || params.TARGET == 'aks') } }
       agent { label 'linux-docker' }
       steps {
-        withCredentials([
-          file(credentialsId: 'TODO_KUBECONFIG_AKS', variable: 'KUBECONFIG')
-        ]) {
+        withCredentials([file(credentialsId: 'TODO_KUBECONFIG_AKS', variable: 'KUBECONFIG')]) {
           sh '''
             set -e
             echo "Desplegando en AKS (prod) por DIGEST..."
@@ -378,7 +414,12 @@ pipeline {
               -f "${VALUES_AKS}" \
               --set image.digest="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $2}')" \
               --set image.repository="$(echo ${IMAGE_REF_DIGEST} | awk -F@ '{print $1}')"
-            kubectl -n "${NS_PROD}" rollout status deploy/"${APP_NAME}" --timeout=240s
+
+            echo "Verificando estado del release..."
+            helm -n "${NS_PROD}" status "${APP_NAME}"
+
+            echo "Esperando rollout por label selector (robusto para Helm)..."
+            kubectl -n "${NS_PROD}" rollout status deploy -l "app.kubernetes.io/instance=${APP_NAME}" --timeout=240s
           '''
         }
       }
