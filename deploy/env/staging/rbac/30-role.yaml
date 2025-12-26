@@ -1,0 +1,34 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tfm-deployer-role
+  namespace: prod
+rules:
+  # Lectura general
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "events"]
+    verbs: ["get", "list", "watch"]
+
+  # ConfigMaps (común en prod). Secrets: mantener update/patch solo si realmente se gestionan por Helm.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "update", "patch"]  # sin create/delete por defecto
+
+  # Deployments/Rollout
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+  # Ingress: permitir actualizaciones, evitar delete
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+  # NetworkPolicy (si se gestiona por chart)
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
