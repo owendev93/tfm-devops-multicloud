@@ -1,13 +1,21 @@
+replicaCount: 1
+
 ingress:
   enabled: true
-  className: "nginx"   # TODO: o "alb" si usas AWS Load Balancer Controller
-  annotations: {}
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
   hosts:
-    - host: "staging-eks.tu-dominio.com"   # TODO
+    - host: staging.eks.tu-dominio.com
       paths:
         - path: /
           pathType: Prefix
+  tls:
+    - secretName: tfm-app-staging-tls
+      hosts:
+        - staging.eks.tu-dominio.com
 
 networkPolicy:
   enabled: true
   allowIngressFromSameNamespace: true
+

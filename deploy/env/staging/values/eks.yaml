@@ -1,0 +1,33 @@
+# EKS - STAGING (portable-by-design: nginx en ambos clouds)
+replicaCount: 1
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: staging.eks.tu-dominio.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: tfm-app-staging-tls
+      hosts:
+        - staging.eks.tu-dominio.com
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+# Opcional: etiquetas/metadata útiles para trazabilidad
+podAnnotations:
+  tfm.unir/env: "staging"
+  tfm.unir/cloud: "eks"

@@ -1,0 +1,32 @@
+# AKS - STAGING (misma estrategia: nginx + cert-manager)
+replicaCount: 1
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: staging.aks.tu-dominio.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: tfm-app-staging-tls
+      hosts:
+        - staging.aks.tu-dominio.com
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+podAnnotations:
+  tfm.unir/env: "staging"
+  tfm.unir/cloud: "aks"

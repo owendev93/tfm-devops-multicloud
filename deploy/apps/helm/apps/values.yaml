@@ -2,64 +2,28 @@ replicaCount: 2
 
 image:
   repository: "REPO_PLACEHOLDER"
-  digest: "DIGEST_PLACEHOLDER"   # sha256:...
+  digest: "DIGEST_PLACEHOLDER"   # ej: sha256:...
   pullPolicy: IfNotPresent
 
 nameOverride: ""
 fullnameOverride: ""
 
+service:
+  type: ClusterIP
+  port: 3000
+
 serviceAccount:
   create: true
   name: ""
+  annotations: {}
 
 podAnnotations: {}
 
-service:
-  type: ClusterIP
-  port: 80
-  targetPort: 3000   # TODO: cambia si tu app escucha en otro puerto
+env:
+  - name: NODE_ENV
+    value: "production"
 
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-  hosts:
-    - host: ""
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []
-
-resources:
-  limits:
-    cpu: "500m"
-    memory: "512Mi"
-  requests:
-    cpu: "100m"
-    memory: "128Mi"
-
-autoscaling:
-  enabled: false
-  minReplicas: 2
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 70
-
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 10001
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-
-podSecurityContext:
-  fsGroup: 10001
-
-livenessProbe:
-  enabled: true
-  path: /health
-  port: 3000
-  initialDelaySeconds: 15
-  periodSeconds: 10
-
+# Probes (recomendado para excelencia)
 readinessProbe:
   enabled: true
   path: /health
@@ -67,9 +31,38 @@ readinessProbe:
   initialDelaySeconds: 5
   periodSeconds: 10
 
-env:
-  - name: NODE_ENV
-    value: "production"
+livenessProbe:
+  enabled: true
+  path: /health
+  port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+hpa:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# Ingress (estructura completa aunque esté deshabilitado)
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
 
 # NetworkPolicy (opcional pero aporta valor en TFM)
 networkPolicy:

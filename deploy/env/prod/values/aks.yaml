@@ -1,0 +1,32 @@
+# AKS - PROD
+replicaCount: 2
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: app.aks.tu-dominio.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: tfm-app-prod-tls
+      hosts:
+        - app.aks.tu-dominio.com
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 600m
+    memory: 512Mi
+
+podAnnotations:
+  tfm.unir/env: "prod"
+  tfm.unir/cloud: "aks"
