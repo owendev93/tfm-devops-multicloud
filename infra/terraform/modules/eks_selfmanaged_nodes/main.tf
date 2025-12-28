@@ -77,7 +77,6 @@ resource "aws_security_group" "nodes_sg" {
   })
 }
 
-# Reglas de ejemplo: permitir tráfico dentro del SG (entre nodos)
 resource "aws_security_group_rule" "nodes_ingress_self" {
   type              = "ingress"
   from_port         = 0
@@ -91,9 +90,6 @@ resource "aws_security_group_rule" "nodes_ingress_self" {
 # USER DATA (BOOTSTRAP)
 ########################
 
-# IMPORTANTE:
-# Este script asume que la AMI de Packer está basada en una imagen compatible con EKS
-# y que existe el script de bootstrap /etc/eks/bootstrap.sh o equivalente.
 locals {
   user_data = <<-EOT
     #!/bin/bash
@@ -110,8 +106,20 @@ resource "aws_launch_template" "this" {
   image_id      = var.ami_id
   instance_type = var.instance_type
 
+  # CORRECCIÓN SEGURIDAD: Cifrado de discos EBS (DevSecOps)
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size           = 20
+      volume_type           = "gp3"
+      encrypted             = true # <--- Cifrado activado
+      delete_on_termination = true
+    }
+  }
+
   key_name = length(var.ssh_key_name) > 0 ? var.ssh_key_name : null
 
+  # MEJORA SINTAXIS: Dependencia explícita del perfil de IAM
   iam_instance_profile {
     name = aws_iam_instance_profile.node_profile.name
   }
@@ -128,7 +136,6 @@ resource "aws_launch_template" "this" {
 
   tag_specifications {
     resource_type = "instance"
-
     tags = merge(local.common_tags, {
       Name = "${var.project_name}-${var.environment}-eks-self-node"
     })
@@ -136,7 +143,6 @@ resource "aws_launch_template" "this" {
 
   tag_specifications {
     resource_type = "volume"
-
     tags = local.common_tags
   }
 
@@ -161,7 +167,6 @@ resource "aws_autoscaling_group" "this" {
     version = "$Latest"
   }
 
-  # Etiquetas requeridas por EKS (muy importante)
   tag {
     key                 = "kubernetes.io/cluster/${var.cluster_name}"
     value               = "owned"
@@ -174,7 +179,6 @@ resource "aws_autoscaling_group" "this" {
     propagate_at_launch = true
   }
 
-  # Tags comunes del proyecto
   dynamic "tag" {
     for_each = local.common_tags
     content {
