@@ -1,0 +1,24 @@
+prometheus:
+  prometheusSpec:
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          # storageClassName: managed-csi
+          resources:
+            requests:
+              storage: 10Gi
+
+grafana:
+  persistence:
+    # storageClassName: managed-csi
+    size: 5Gi
+
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          # storageClassName: managed-csi
+          resources:
+            requests:
+              storage: 2Gi

@@ -1,0 +1,24 @@
+loki:
+  auth_enabled: false
+
+singleBinary:
+  replicas: 1
+
+# Persistencia mínima (ajusta storageClass si aplica)
+persistence:
+  enabled: true
+  size: 10Gi
+  # storageClass: gp3            # EKS (opcional)
+  # storageClass: managed-csi    # AKS (opcional)
+
+service:
+  type: ClusterIP
+
+# Recursos mínimos (puedes ajustarlos luego)
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

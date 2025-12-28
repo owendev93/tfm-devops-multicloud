@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tfm-minimal-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: tfm.rules
+      rules:
+        - alert: PodCrashLoopBackOff
+          expr: kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod en CrashLoopBackOff"
+            description: "Pod {{ $labels.pod }} en ns {{ $labels.namespace }} en CrashLoopBackOff > 5m."
+
+        - alert: NodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Nodo NotReady"
+            description: "El nodo {{ $labels.node }} no está Ready durante más de 5m."

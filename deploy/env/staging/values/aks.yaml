@@ -30,3 +30,10 @@ resources:
 podAnnotations:
   tfm.unir/env: "staging"
   tfm.unir/cloud: "aks"
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80

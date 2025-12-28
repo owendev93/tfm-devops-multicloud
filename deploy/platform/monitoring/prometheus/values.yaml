@@ -1,0 +1,53 @@
+# kube-prometheus-stack (prometheus-community)
+# Valores mínimos, reproducibles y defendibles para TFM.
+
+grafana:
+  enabled: true
+  adminPassword: "admin" # Cambiar en CI/CD a Secret o variable segura
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: true
+    size: 5Gi
+
+  # Sidecar para cargar dashboards desde ConfigMaps (label grafana_dashboard=1)
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: monitoring
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 10d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+# Componentes del operador
+prometheusOperator:
+  enabled: true
