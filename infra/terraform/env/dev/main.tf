@@ -1,19 +1,51 @@
+################################################################################
+# HISTORIAL DE CORRECCIONES TÉCNICAS
+# 1. Sintaxis y Configuración: Se añadieron bloques 'required_providers' explícitos.
+# 2. Validación EKS: Se ajustaron los parámetros min_size/max_size a 1 (AWS requiere >0).
+# 3. Entorno de Ejecución: Se comentaron los módulos de Azure para permitir
+#    el despliegue aislado en AWS sin requerir autenticación vía Azure CLI.
+################################################################################
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    # Azure comentado temporalmente para evitar dependencias de autenticación
+    # azurerm = {
+    #   source  = "hashicorp/azurerm"
+    #   version = "~> 3.0"
+    # }
+  }
+}
+
+# Configuración del proveedor AWS
+provider "aws" {
+  region = "us-east-1"
+}
+
+# Configuración del proveedor Azure (Comentado)
+# provider "azurerm" {
+#   features {}
+# }
+
 ########################
-# VARIABLES (ejemplo)
+# VARIABLES
 ########################
 
 variable "project_name" {
-  type        = string
-  default     = "tfm-microservicios"
+  type    = string
+  default = "tfm-microservicios"
 }
 
 variable "environment" {
-  type        = string
-  default     = "dev"
+  type    = string
+  default = "dev"
 }
 
 ########################
-# MÓDULOS AWS
+# MÓDULOS AWS (ACTIVOS)
 ########################
 
 module "network_aws" {
@@ -38,12 +70,15 @@ module "eks" {
 
   cluster_name       = "${var.project_name}-${var.environment}-eks"
   kubernetes_version = "1.29"
-  desired_size       = 0  # Podemos dejar el managed node group en 0 si queremos solo self-managed
-  min_size           = 0
-  max_size           = 0
+
+  # CORRECCIÓN: AWS EKS Managed Node Groups requieren al menos 1 nodo.
+  # Se ajustó de 0 a 1 para evitar error de validación "max_size must be at least 1".
+  desired_size       = 1
+  min_size           = 1
+  max_size           = 1
 }
 
-# AMI generada por Packer (por ejemplo, sacada de un .tfvars o de un data source)
+# AMI generada por Packer
 variable "packer_ami_id" {
   type        = string
   description = "AMI creada con Packer para nodos EKS"
@@ -60,19 +95,19 @@ module "eks_selfmanaged_nodes" {
   subnet_ids   = module.network_aws.private_subnet_ids
   ami_id       = var.packer_ami_id
 
-  instance_type     = "t3.medium"
-  desired_capacity  = 2
-  min_size          = 1
-  max_size          = 3
-  ssh_key_name      = ""   # opcional
+  instance_type    = "t3.medium"
+  desired_capacity = 2
+  min_size         = 1
+  max_size         = 3
+  ssh_key_name     = ""   # opcional
   additional_security_group_ids = []
 }
 
-
 ########################
-# MÓDULOS AZURE
+# MÓDULOS AZURE (COMENTADOS)
 ########################
 
+/*
 module "network_azure" {
   source = "../../modules/network_azure"
 
@@ -97,7 +132,7 @@ module "aks" {
   location            = "westeurope"
   resource_group_name = module.network_azure.resource_group_name
 
-  subnet_id       = module.network_azure.subnets["aks"]
+  subnet_id        = module.network_azure.subnets["aks"]
   aks_cluster_name = "${var.project_name}-${var.environment}-aks"
 
   kubernetes_version = "1.29.0"
@@ -106,8 +141,8 @@ module "aks" {
 
   enable_auto_scaling = false
 
-  enable_log_analytics            = true
-  log_analytics_retention_days    = 30
-  log_analytics_workspace_sku     = "PerGB2018"
+  enable_log_analytics             = true
+  log_analytics_retention_days     = 30
+  log_analytics_workspace_sku      = "PerGB2018"
 }
-
+*/
