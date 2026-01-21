@@ -30,7 +30,7 @@ spec:
     environment {
         DOCKER_REGISTRY = "jolrojasbodev" 
         IMAGE_NAME      = "spring-petclinic"
-        # Definición de Releases de Helm para despliegue paralelo
+        // Definición de Releases de Helm para despliegue paralelo
         APP_NAME_MONO   = "petclinic-tfm"
         APP_NAME_VETS   = "petclinic-vets"
         NAMESPACE       = "default" 
