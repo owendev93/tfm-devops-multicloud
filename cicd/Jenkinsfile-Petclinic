@@ -30,7 +30,9 @@ spec:
     environment {
         DOCKER_REGISTRY = "jolrojasbodev" 
         IMAGE_NAME      = "spring-petclinic"
-        APP_NAME        = "petclinic-tfm"
+        # Definición de Releases de Helm para despliegue paralelo
+        APP_NAME_MONO   = "petclinic-tfm"
+        APP_NAME_VETS   = "petclinic-vets"
         NAMESPACE       = "default" 
     }
 
@@ -46,16 +48,16 @@ spec:
                 container('docker') {
                     dir('local-deploy/petclinic') {
                         script {
-                            // Autenticación segura en el registro de contenedores
+                            // Autenticación en registro privado
                             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
                                 sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                             }
                             
-                            // Construcción y publicación de la imagen
+                            // Construcción de artefacto único
                             sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest ."
                             sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
                             
-                            // Obtención del digest SHA256 para garantizar inmutabilidad en el despliegue
+                            // Extracción de Digest SHA256 para despliegue inmutable
                             env.IMAGE_DIGEST = sh(script: "docker inspect --format='{{index .RepoDigests 0}}' ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest | cut -d'@' -f2", returnStdout: true).trim()
                         }
                     }
@@ -63,24 +65,37 @@ spec:
             }
         }
 
-        stage('Infrastructure & Application Deployment') {
+        stage('Strangler Fig Architecture Deployment') {
             steps {
                 container('deployer') {
                     script {
-                        // Sincronización de componentes de infraestructura (Base de Datos y Secretos)
+                        // 1. Provisión de Infraestructura de Datos
                         sh "kubectl apply -f local-deploy/infra/mysql-local-setup.yaml"
                         
-                        // Despliegue de aplicación mediante Helm Chart
+                        // 2. Despliegue Release A: Monolito (Core)
                         sh """
-                        helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
+                        helm upgrade --install ${APP_NAME_MONO} ./deploy/apps/helm/apps \
                           --namespace ${NAMESPACE} \
                           --values ./local-deploy/petclinic/values-local.yaml \
                           --set image.digest=${env.IMAGE_DIGEST} \
                           --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
                           --set autoscaling.enabled=false
                         """
+
+                        // 3. Despliegue Release B: Microservicio Vets (Desagregado)
+                        sh """
+                        helm upgrade --install ${APP_NAME_VETS} ./deploy/apps/helm/apps \
+                          --namespace ${NAMESPACE} \
+                          --values ./local-deploy/petclinic/values-vets.yaml \
+                          --set image.digest=${env.IMAGE_DIGEST} \
+                          --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
+                          --set autoscaling.enabled=false
+                        """
                         
-                        // Aplicación de configuración de red externa (Puerto Fijo)
+                        // 4. Aplicación de Reglas de Enrutamiento (Ingress)
+                        sh "kubectl apply -f local-deploy/infra/strangler-ingress.yaml"
+
+                        // 5. Configuración de Acceso Externo Estático (Puerto Fijo)
                         sh "kubectl apply -f local-deploy/infra/petclinic-nodeport.yaml"
                     }
                 }

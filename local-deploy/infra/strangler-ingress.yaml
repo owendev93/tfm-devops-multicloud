@@ -1,0 +1,31 @@
+# Definición de reglas de tráfico Capa 7 (HTTP) para arquitectura Strangler Fig
+# Objetivo: Segmentación de tráfico entre Monolito y Microservicios
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: petclinic-strangler-ingress
+  namespace: default
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - http:
+      paths:
+      # Regla 1: Desvío de tráfico del módulo Vets al nuevo microservicio
+      - path: /vets.html
+        pathType: Prefix
+        backend:
+          service:
+            name: petclinic-vets
+            port:
+              number: 8080
+
+      # Regla 2: Ruta por defecto (Catch-all) hacia el monolito
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: petclinic-monolith
+            port:
+              number: 8080
