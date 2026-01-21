@@ -95,8 +95,8 @@ spec:
                         // 4. Aplicación de Reglas de Enrutamiento (Ingress)
                         sh "kubectl apply -f local-deploy/infra/strangler-ingress.yaml"
 
-                        // 5. Configuración de Acceso Externo Estático (Puerto Fijo)
-                        sh "kubectl apply -f local-deploy/infra/petclinic-nodeport.yaml"
+                        // NOTA: Se eliminó el paso 5 (NodePort 30080) porque creaba un acceso directo solo al monolito,
+                        // impidiendo probar el enrutamiento inteligente del Ingress.
                     }
                 }
             }
