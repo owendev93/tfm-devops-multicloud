@@ -1,0 +1,21 @@
+# Configuración de Servicio para Controlador Ingress (Exposición Estática)
+# Definición de puertos NodePort estáticos para garantizar puntos de entrada predecibles en entorno BareMetal/VM.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+    nodePort: 30080    # Puerto de entrada HTTP estático (Estándar para entorno de desarrollo local)
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: https
+    nodePort: 30443    # Puerto de entrada HTTPS estático (Reservado para terminación TLS)

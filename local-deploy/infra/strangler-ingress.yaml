@@ -1,0 +1,31 @@
+# Configuración de enrutamiento HTTP para la implementación del patrón Strangler Fig
+# Segmentación de tráfico entre el servicio monolítico y microservicios desacoplados
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: petclinic-strangler-ingress
+  namespace: default
+spec:
+  # Especificación de la clase del controlador Ingress
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      # Enrutamiento específico para el microservicio de Veterinarios
+      - path: /vets.html
+        pathType: Prefix
+        backend:
+          service:
+            name: petclinic-vets
+            port:
+              number: 8080
+
+      # Enrutamiento por defecto (Catch-all) hacia el servicio Monolito
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: petclinic-monolith
+            port:
+              number: 8080

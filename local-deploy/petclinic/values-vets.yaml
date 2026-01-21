@@ -1,28 +1,26 @@
-# Configuración de despliegue para el servicio principal (Monolito)
-# Contexto: Gestiona el tráfico general de la aplicación excepto módulos desagregados.
+# Configuración de despliegue para el microservicio desagregado "Vets"
+# Estrategia: Strangler Fig Pattern
 
-# Identificador inmutable para descubrimiento de servicio
-fullnameOverride: "petclinic-monolith"
+# Identificador de servicio para reglas de enrutamiento Ingress
+fullnameOverride: "petclinic-vets"
 
-# Alta disponibilidad: Configuración base de 2 réplicas (Paridad con entorno Legacy)
-replicaCount: 2
+# Dimensionamiento específico para el módulo de veterinarios
+replicaCount: 1
 
 image:
   repository: "jolrojasbodev/spring-petclinic"
   pullPolicy: IfNotPresent
 
-# Configuración de red interna
-# La exposición externa se delega exclusivamente al recurso Ingress unificado
 service:
   type: ClusterIP
   port: 8080
   targetPort: 8080
 
-# Desactivación de Ingress por defecto del Chart para evitar conflictos de enrutamiento
+# Gestión de tráfico delegada al Ingress global
 ingress:
   enabled: false
 
-# Inyección de dependencias de persistencia
+# Configuración de persistencia compartida
 env:
   - name: SPRING_PROFILES_ACTIVE
     value: "mysql"
@@ -39,8 +37,7 @@ env:
         name: db-credentials
         key: password
 
-# Sondas de Salud (Health Probes)
-# Tiempos extendidos para mitigar latencia de inicialización de JVM/Hibernate
+# Configuración de estabilidad de runtime
 readinessProbe:
   enabled: true
   path: /actuator/health/readiness
@@ -55,7 +52,6 @@ livenessProbe:
   initialDelaySeconds: 80
   periodSeconds: 15
 
-# Límites de recursos (QoS: Burstable)
 resources:
   requests:
     cpu: 200m
