@@ -11,6 +11,10 @@ fullnameOverride: ""
 service:
   type: ClusterIP
   port: 3000
+  targetPort:3000
+
+podSecurityContext: {}
+securityContext: {}
 
 serviceAccount:
   create: true
